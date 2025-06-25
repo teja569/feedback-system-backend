@@ -1,6 +1,8 @@
 from sqlalchemy import Column, Integer, String, ForeignKey, DateTime, Boolean
 from database import Base
 from datetime import datetime
+from sqlalchemy.orm import relationship
+
 
 class User(Base):
     __tablename__ = "users"
@@ -19,3 +21,28 @@ class Feedback(Base):
     sentiment = Column(String)
     created_at = Column(DateTime, default=datetime.utcnow)
     acknowledged = Column(Boolean, default=False)
+# models.py
+class FeedbackRequest(Base):
+    __tablename__ = "feedback_requests"
+    id = Column(Integer, primary_key=True, index=True)
+    employee_id = Column(Integer, ForeignKey("users.id"))
+    manager_id = Column(Integer, ForeignKey("users.id"))
+    message = Column(String)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    status = Column(String, default="pending")
+
+    employee = relationship("User", foreign_keys=[employee_id])
+    manager = relationship("User", foreign_keys=[manager_id])
+
+class PeerFeedback(Base):
+    __tablename__ = "peer_feedback"
+
+    id = Column(Integer, primary_key=True, index=True)
+    sender_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    receiver_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    message = Column(String, nullable=False)
+    anonymous = Column(Boolean, default=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    sender = relationship("User", foreign_keys=[sender_id])
+    receiver = relationship("User", foreign_keys=[receiver_id])
