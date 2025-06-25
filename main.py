@@ -154,11 +154,11 @@ def forgot_password(username: str = Form(...), db: Session = Depends(get_db)):
     print(f"Reset Link: https://feedback-system-frontend-2nsa.onrender.com/reset-password?token={token}")
     return {"message": "Password reset link generated (check console for now)."}
 
-@app.put("/reset-password")
-def reset_password_direct(username: str = Form(...), new_password: str = Form(...), db: Session = Depends(get_db)):
-    user = db.query(User).filter(User.username == username).first()
-    if not user:
-        raise HTTPException(status_code=404, detail="User not found")
+@app.post("/reset-password")
+def reset_password(token: str = Form(...), new_password: str = Form(...), db: Session = Depends(get_db)):
+    user = db.query(User).filter(User.reset_token == token).first()
+    if not user or not user.reset_token_expiry or user.reset_token_expiry < datetime.utcnow():
+        raise HTTPException(status_code=400, detail="Invalid or expired token")
     user.password = new_password
     user.reset_token = None
     user.reset_token_expiry = None
