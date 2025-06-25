@@ -5,14 +5,15 @@ from database import SessionLocal, engine
 from models import User, Feedback, FeedbackRequest, PeerFeedback
 import models
 from schemas import PeerFeedbackCreate, PeerFeedbackOut, FeedbackRequestCreate
-from datetime import datetime
+from datetime import datetime, timedelta
+import uuid
 
 app = FastAPI()
 
 # CORS Middleware
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["https://feedback-system-frontend-2nsa.onrender.com"],  # For dev only. Use your domain in prod.
+    allow_origins=["https://feedback-system-frontend-2nsa.onrender.com"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -26,7 +27,6 @@ def get_db():
     finally:
         db.close()
 
-# Routes
 @app.get("/")
 def read_root():
     return {"message": "Backend is working"}
@@ -115,7 +115,7 @@ def get_employees(db: Session = Depends(get_db)):
     employees = db.query(User).filter(User.role == "employee").all()
     return [{"id": e.id, "username": e.username} for e in employees]
 
-# PART 2: Employee-Initiated Feedback Request
+# Feedback Request
 @app.post("/feedback-request")
 def create_request(request: FeedbackRequestCreate, db: Session = Depends(get_db)):
     db_req = FeedbackRequest(**request.dict())
@@ -128,7 +128,7 @@ def create_request(request: FeedbackRequestCreate, db: Session = Depends(get_db)
 def get_manager_requests(manager_id: int, db: Session = Depends(get_db)):
     return db.query(FeedbackRequest).filter_by(manager_id=manager_id, status="pending").all()
 
-# PART 3: Peer Feedback
+# Peer Feedback
 @app.post("/peer-feedback", response_model=PeerFeedbackOut)
 def create_peer_feedback(feedback: PeerFeedbackCreate, db: Session = Depends(get_db)):
     new_feedback = PeerFeedback(**feedback.dict())
@@ -140,6 +140,31 @@ def create_peer_feedback(feedback: PeerFeedbackCreate, db: Session = Depends(get
 @app.get("/peer-feedback/{receiver_id}", response_model=list[PeerFeedbackOut])
 def get_feedback_for_user(receiver_id: int, db: Session = Depends(get_db)):
     return db.query(PeerFeedback).filter_by(receiver_id=receiver_id).all()
+
+# Forgot Password
+@app.post("/forgot-password")
+def forgot_password(username: str = Form(...), db: Session = Depends(get_db)):
+    user = db.query(User).filter(User.username == username).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    token = str(uuid.uuid4())
+    user.reset_token = token
+    user.reset_token_expiry = datetime.utcnow() + timedelta(minutes=15)
+    db.commit()
+    print(f"Reset Link: https://your-frontend-url.com/reset-password?token={token}")
+    return {"message": "Password reset link generated (check console for now)."}
+
+@app.put("/reset-password")
+def reset_password_direct(username: str = Form(...), new_password: str = Form(...), db: Session = Depends(get_db)):
+    user = db.query(User).filter(User.username == username).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    user.password = new_password
+    user.reset_token = None
+    user.reset_token_expiry = None
+    db.commit()
+    return {"message": "Password reset successful"}
+
 
 # Create tables
 models.Base.metadata.create_all(bind=engine)
