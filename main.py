@@ -151,7 +151,7 @@ def forgot_password(username: str = Form(...), db: Session = Depends(get_db)):
     user.reset_token = token
     user.reset_token_expiry = datetime.utcnow() + timedelta(minutes=15)
     db.commit()
-    print(f"Reset Link: https://your-frontend-url.com/reset-password?token={token}")
+    print(f"Reset Link: https://feedback-system-frontend-2nsa.onrender.com/reset-password?token={token}")
     return {"message": "Password reset link generated (check console for now)."}
 
 @app.put("/reset-password")
